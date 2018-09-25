@@ -9,9 +9,10 @@ module.exports = async function(
   svg_path,
   debug = false
 ) {
-  console.log(github_user, github_pwd, project_id, svg_path);
-  if (!github_user || !github_pwd || !project_id || !svg_path) {
+  if (debug) {
     console.log(github_user, github_pwd, project_id, svg_path);
+  }
+  if (!github_user || !github_pwd || !project_id || !svg_path) {
     return;
   }
   const browser = await puppeteer.launch({ headless: !debug });
@@ -23,7 +24,11 @@ module.exports = async function(
 
   const page = await browser.newPage();
   await page.goto('http://www.iconfont.cn/');
+  await page.waitForSelector(
+    '.quick-menu > .clearfix > li > .signin > .iconfont'
+  );
   await page.click('.quick-menu > .clearfix > li > .signin > .iconfont');
+  await page.waitForSelector('.login-div > ul > li > a > .github');
   await page.click('.login-div > ul > li > a > .github');
 
   await page.evaluate(() => {
