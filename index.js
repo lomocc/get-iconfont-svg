@@ -1,6 +1,8 @@
-const fs = require('fs');
-const request = require('request');
+const fs = require('fs-extra');
+const request = require('request-promise-native');
 const puppeteer = require('puppeteer');
+const parseString = require('xml2js').parseString;
+const { SVGPathData } = require('svg-pathdata');
 
 module.exports = async function(
   github_user,
@@ -47,16 +49,32 @@ module.exports = async function(
   if (svgRemoteUrl.indexOf('//') == 0) {
     svgRemoteUrl = 'http:' + svgRemoteUrl;
   }
-  const file = fs.createWriteStream(svg_path);
-  file.on('finish', () => {
-    file.close(() => {});
-  });
-  request
-    .get(svgRemoteUrl)
-    .on('error', err => {
-      console.log(err);
-    })
-    .pipe(file);
-
+  const svgStr = await request.get(svgRemoteUrl);
+  const svgObj = await parseStringAsync(svgStr);
+  const svgPathMap = getSvgPath(svgObj);
+  const svgPathExports = `module.exports = ${JSON.stringify(svgPathMap)};`;
+  await fs.outputFile(svg_path, svgPathExports);
   await browser.close();
 };
+// parseString 的 promise 版
+function parseStringAsync(source) {
+  return new Promise((resolve, reject) =>
+    parseString(source, (err, result) => (err ? reject(err) : resolve(result)))
+  );
+}
+// 读取 svg path 的 d 属性
+function getSvgPath(result) {
+  let ascent = result.svg.defs[0].font[0]['font-face'][0].$.ascent; // ascent="896"
+  const yOffset = +ascent;
+  // Get the path
+  let exportsObj = {};
+  let glyphList = result.svg.defs[0].font[0].glyph;
+  for (var i in glyphList) {
+    let glyph = glyphList[i];
+    let name = glyph.$['glyph-name'];
+    // let path = glyph.$.d;
+    let path = new SVGPathData(glyph.$.d).ySymmetry(yOffset).encode();
+    exportsObj[name] = path;
+  }
+  return exportsObj;
+}
