@@ -25,7 +25,7 @@ module.exports = async function(
   await githubpage.click('[name="commit"]');
 
   const page = await browser.newPage();
-  await page.goto('http://www.iconfont.cn/');
+  await page.goto('https://www.iconfont.cn/');
   await page.waitForSelector(
     '.quick-menu > .clearfix > li > .signin > .iconfont'
   );
@@ -40,14 +40,14 @@ module.exports = async function(
 
   const detailpage = await browser.newPage();
   await detailpage.goto(
-    'http://www.iconfont.cn/api/project/detail.json?pid=' + project_id
+    'https://www.iconfont.cn/api/project/detail.json?pid=' + project_id
   );
   const result = await detailpage.evaluate(() =>
     JSON.parse(document.body.innerText)
   );
   let svgRemoteUrl = result.data.font.svg_file;
   if (svgRemoteUrl.indexOf('//') == 0) {
-    svgRemoteUrl = 'http:' + svgRemoteUrl;
+    svgRemoteUrl = 'https:' + svgRemoteUrl;
   }
   const svgStr = await request.get(svgRemoteUrl);
   const svgObj = await parseStringAsync(svgStr);
