@@ -52,7 +52,7 @@ module.exports = async function(
   const svgStr = await request.get(svgRemoteUrl);
   const svgObj = await parseStringAsync(svgStr);
   const svgPathMap = getSvgPath(svgObj);
-  const svgPathExports = `module.exports = ${JSON.stringify(svgPathMap)};`;
+  const svgPathExports = `export default ${JSON.stringify(svgPathMap)};`;
   await fs.outputFile(svg_path, svgPathExports);
   await browser.close();
 };
