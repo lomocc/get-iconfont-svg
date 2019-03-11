@@ -4,20 +4,11 @@ const puppeteer = require('puppeteer');
 const parseString = require('xml2js').parseString;
 const { SVGPathData } = require('svg-pathdata');
 
-module.exports = async function(
-  github_user,
-  github_pwd,
-  project_id,
-  svg_path,
-  debug = false
-) {
-  if (debug) {
-    console.log(github_user, github_pwd, project_id, svg_path);
-  }
-  if (!github_user || !github_pwd || !project_id || !svg_path) {
+async function getInfo(github_user, github_pwd, project_id, options) {
+  if (!github_user || !github_pwd || !project_id) {
     return;
   }
-  const browser = await puppeteer.launch({ headless: !debug });
+  const browser = await puppeteer.launch(options);
   const githubpage = await browser.newPage();
   await githubpage.goto('https://github.com/login');
   await githubpage.type('#login_field', github_user);
@@ -45,17 +36,15 @@ module.exports = async function(
   const result = await detailpage.evaluate(() =>
     JSON.parse(document.body.innerText)
   );
-  let svgRemoteUrl = result.data.font.svg_file;
-  if (svgRemoteUrl.indexOf('//') == 0) {
-    svgRemoteUrl = 'https:' + svgRemoteUrl;
-  }
+  await browser.close();
+  return result;
+}
+async function getSVG(svgRemoteUrl) {
   const svgStr = await request.get(svgRemoteUrl);
   const svgObj = await parseStringAsync(svgStr);
   const svgPathMap = getSvgPath(svgObj);
-  const svgPathExports = `export default ${JSON.stringify(svgPathMap)};`;
-  await fs.outputFile(svg_path, svgPathExports);
-  await browser.close();
-};
+  return svgPathMap;
+}
 // parseString 的 promise 版
 function parseStringAsync(source) {
   return new Promise((resolve, reject) =>
@@ -78,3 +67,22 @@ function getSvgPath(result) {
   }
   return exportsObj;
 }
+module.exports = async function getIconfont(
+  github_user,
+  github_pwd,
+  project_id,
+  file,
+  options
+) {
+  let result = await getInfo(github_user, github_pwd, project_id, options);
+  let svg_file = result.data.font.svg_file;
+  if (svg_file.indexOf('//') === 0) {
+    svg_file = 'https:' + svg_file;
+  }
+  const exportSVG = await getSVG(svg_file);
+  const exportSVGModule = `export default ${JSON.stringify(exportSVG)};`;
+  await fs.outputFile(file, exportSVGModule);
+};
+
+exports.getInfo = getInfo;
+exports.getSVG = getSVG;
