@@ -1,4 +1,5 @@
 const fs = require('fs-extra');
+const path = require('path');
 const request = require('request-promise-native');
 const puppeteer = require('puppeteer');
 const parseString = require('xml2js').parseString;
@@ -39,12 +40,6 @@ async function getInfo(github_user, github_pwd, project_id, options) {
   await browser.close();
   return result;
 }
-async function getSVG(svgRemoteUrl) {
-  const svgStr = await request.get(svgRemoteUrl);
-  const svgObj = await parseStringAsync(svgStr);
-  const svgPathMap = getSvgPath(svgObj);
-  return svgPathMap;
-}
 // parseString 的 promise 版
 function parseStringAsync(source) {
   return new Promise((resolve, reject) =>
@@ -67,22 +62,46 @@ function getSvgPath(result) {
   }
   return exportsObj;
 }
-module.exports = async function getIconfont(
-  github_user,
-  github_pwd,
-  project_id,
-  file,
-  options
-) {
+/**
+ *
+ * @param {*} github_user
+ * @param {*} github_pwd
+ * @param {*} project_id
+ * @param {*} file svg path 信息存放地址
+ * @param {*} options
+ */
+async function getIconfont(github_user, github_pwd, project_id, file, options) {
   let result = await getInfo(github_user, github_pwd, project_id, options);
   let svg_file = result.data.font.svg_file;
   if (svg_file.indexOf('//') === 0) {
     svg_file = 'https:' + svg_file;
   }
-  const exportSVG = await getSVG(svg_file);
+
+  const svgStr = await request.get(svg_file);
+  const svgObj = await parseStringAsync(svgStr);
+  const exportSVG = getSvgPath(svgObj);
+
   const exportSVGModule = `export default ${JSON.stringify(exportSVG)};`;
   await fs.outputFile(file, exportSVGModule);
-};
+}
+/**
+ *
+ * @param {*} github_user
+ * @param {*} github_pwd
+ * @param {*} project_id
+ * @param {*} dir svg 文件保存目录
+ * @param {*} options
+ */
+async function getSVG(github_user, github_pwd, project_id, dir, options) {
+  let result = await getInfo(github_user, github_pwd, project_id, options);
+  let icons = result.data.icons;
+  for (const icon of icons) {
+    let svgfile = icon.show_svg.replace(' class="icon" ', ' ');
+    await fs.outputFile(path.resolve(dir, `${icon.font_class}.svg`), svgfile);
+  }
+}
+getIconfont.getSVG = getSVG;
 
-exports.getInfo = getInfo;
-exports.getSVG = getSVG;
+getIconfont.getInfo = getInfo;
+
+module.exports = getIconfont;
